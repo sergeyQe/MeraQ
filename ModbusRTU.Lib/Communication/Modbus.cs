@@ -11,11 +11,28 @@ namespace ModbusRTUProject.Communication
     {
         private readonly ICommunicator _communicator;
 
+        public int ResponseTimeout {  get; set; } //определяет время ожидания ответа на запрос в мс
+
         public Modbus(ICommunicator communicator)
         {
             _communicator = communicator;
         }
 
+        
+        public ModbusResponse Write(byte deviceAddress, ushort registerAddress, byte[] data)
+        {
+
+        }
+
+        public ModbusResponse Read(byte deviceAddress, ushort registerAddress, int byteCount)
+        {
+
+        }
+
+         public static ushort Calculate(IEnumerable<byte>)
+        {
+
+        }
 
     }
 }

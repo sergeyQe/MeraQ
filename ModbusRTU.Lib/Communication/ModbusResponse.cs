@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace ModbusRTUProject.Communication
 {
-    internal class ModbusResponce
+    internal class ModbusResponse
     {
         public ExceptionCode Error { get; set; }
 

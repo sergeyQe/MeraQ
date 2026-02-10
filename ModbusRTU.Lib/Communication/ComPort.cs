@@ -1,9 +1,7 @@
 ﻿using ModbusRTUProject.Interfaces;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.IO.Ports;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ModbusRTUProject.Communication
 {
@@ -56,78 +54,112 @@ namespace ModbusRTUProject.Communication
         /// </summary>
         public void Close()
         {
-            if (_serialPort == null)
-            {
-                return;
-            }
 
-            try
+            lock (_lock)
             {
-                if (_serialPort.IsOpen)
+                if (!IsPortNotNull()) return;
+
+                try
                 {
-                    DiscardIOBuffers(); // чистим порт
-                    _serialPort.Close(); // закрываем порт
+                    if (IsPortOpen())
+                    {
+                        DiscardIOBuffers(); // чистим порт
+                        _serialPort.Close(); // закрываем порт
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.ToString());
-            }
-            finally
-            {
-                _serialPort.Dispose(); // Освобождаем ресурсы
-                _serialPort = null;
+                catch (Exception ex)
+                {
+                    throw new Exception($"ошибка при закрытии  порта {_serialPort.PortName}", ex);
+                }
+
             }
 
         }
 
         public int Write(byte[] buffer)
         {
-            if (buffer == null && buffer.Length == 0)
+            if (buffer == null || buffer.Length == 0)
             {
                 throw new ArgumentNullException(nameof(buffer),
                     "Массив данных для отправки пустой.");
+            }
+
+
+            if (!IsPortNotNull() || !IsPortOpen())
+            {
+                throw new InvalidOperationException("_serialPort равен null или не открыт");
+            }
+
+            try
+            {
+                lock (_lock)
+                {
+                    _serialPort.Write(buffer, 0, buffer.Length);
+                    return buffer.Length;
+                }
+            }
+            catch (TimeoutException ex)
+            {
+                throw new TimeoutException($"Таймаут записи в порт {PortName}.", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Ошибка при записи {ex.Message}");
+            }
+
         }
 
         public void DiscardIOBuffers()
         {
-            throw new NotImplementedException();
+            if (!IsPortNotNull() || !IsPortOpen()) return;
+            try
+            {
+                lock (_lock)
+                {
+                    _serialPort.DiscardInBuffer();   // Очистка входного буфера
+                    _serialPort.DiscardOutBuffer();  // Очистка выходного буфера
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception("Ошибка в методе DiscardIOBuffers()", ex);
+            }
         }
-
 
 
         public byte[] Read()
         {
 
-            ValidationPortNullOrCloseRead(_serialPort); //валидация на 
-
-            try
+            ValidationPortForRead();
+            lock (_lock)
             {
-                // количество байтов, доступных для чтения
-                int bytesToRead = _serialPort.BytesToRead;
+                try
+                {
+                    // количество байтов, доступных для чтения
+                    int bytesToRead = _serialPort.BytesToRead;
 
-                if (bytesToRead == 0) return Array.Empty<byte>();
+                    if (bytesToRead == 0) return Array.Empty<byte>();
 
 
-                //  Создаем массив нужного размера
-                byte[] buffer = new byte[bytesToRead];
+                    //  Создаем массив нужного размера
+                    byte[] buffer = new byte[bytesToRead];
 
-                //  Читаем  данные и возвращаем реальное количество байт
-                int bytesRead = _serialPort.Read(buffer, 0, bytesToRead);
+                    //  Читаем  данные и возвращаем реальное количество байт
+                    int bytesRead = _serialPort.Read(buffer, 0, bytesToRead);
 
-                ///<summary>
-                ///Если прочитано меньше, то удаляем лишнее
-                ///делаем копирование в массив меньшей длины
-                ///</summary>///
-                if (bytesRead != bytesToRead)
-        {
-                    byte[] actualData = new byte[bytesRead];
-                    Array.Copy(buffer, 0, actualData, 0, bytesRead);
-                    buffer = actualData;
-        }
+                    ///<summary>
+                    ///Если прочитано меньше, то удаляем лишнее
+                    ///делаем копирование в массив меньшей длины
+                    ///</summary>///
+                    if (bytesRead != bytesToRead)
+                    {
+                        byte[] actualData = new byte[bytesRead];
+                        Array.Copy(buffer, 0, actualData, 0, bytesRead);
+                        buffer = actualData;
+                    }
 
-                return buffer;
-            }
+                    return buffer;
+                }
                 catch (Exception ex)
                 {
                     throw new Exception($"ошибка при чтении данных из порта {_serialPort.PortName}.", ex);
@@ -177,8 +209,8 @@ namespace ModbusRTUProject.Communication
                 {
                     throw new TimeoutException($"Сработал таймаут. Ожидалось {byteCount}, получено {totalBytesRead}.", ex);
                 }
-            catch (Exception ex)
-        {
+                catch (Exception ex)
+                {
                     throw new Exception($"ошибка при чтении данных из порта {_serialPort.PortName}.", ex);
                 }
 
@@ -187,16 +219,52 @@ namespace ModbusRTUProject.Communication
 
         }
 
-
-        }
-        public byte[] Read(int byteCount)
+        public void Dispose()
         {
-            throw new NotImplementedException();
+            if (_disposed)
+                return;
+
+            lock (_lock)
+            {
+                if (!IsPortNotNull())
+                {
+                    try
+                    {
+                        if (IsPortOpen())
+                        {
+                            DiscardIOBuffers();
+                            _serialPort.Close();
+                        }
+                        _serialPort.Dispose();
+                    }
+                    catch
+                    {
+                        // Игнорируем
+                    }
+                    finally
+                    {
+                        _serialPort = null;
+                    }
+                }
+
+                _disposed = true;
+            }
         }
 
-        public int Write(byte[] buffer)
+
+        public void ValidationPortForRead()
         {
-            throw new NotImplementedException();
+            if (!IsPortNotNull()) throw new InvalidOperationException("Порт не должен быть null");
+            if (!IsPortOpen()) throw new InvalidOperationException("COM-порт закрыт. Чтение не возможно");
         }
+
+
+        private bool IsPortOpen() => _serialPort.IsOpen;
+
+        private bool IsPortNotNull() => _serialPort != null;
+
+
+
+
     }
 }
