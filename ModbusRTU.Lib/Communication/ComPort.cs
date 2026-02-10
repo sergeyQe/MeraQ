@@ -128,9 +128,63 @@ namespace ModbusRTUProject.Communication
 
                 return buffer;
             }
+                catch (Exception ex)
+                {
+                    throw new Exception($"ошибка при чтении данных из порта {_serialPort.PortName}.", ex);
+                }
+            }
+
+        }
+
+        public byte[] Read(int byteCount)
+        {
+            if (byteCount <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(byteCount), "Количество байтов должно быть больше 0.");
+            }
+
+            ValidationPortForRead();
+
+            if (_serialPort.ReadTimeout <= 0) throw new InvalidOperationException("Таймаут должен быть больше нуля");
+
+            byte[] buffer = new byte[byteCount]; //инициализация массива для чтения
+            int totalBytesRead = 0; //количество прочитанных
+            DateTime startTime = DateTime.UtcNow; //таймер для старта 
+            lock (_lock)
+            {
+                try
+                {
+                    while (totalBytesRead < byteCount)
+                    {
+                        TimeSpan elapsed = DateTime.UtcNow - startTime; //сколько времени идет цикл
+                        if (elapsed.TotalMilliseconds > _serialPort.ReadTimeout)
+                        {
+                            throw new TimeoutException($"Сработал таймер общего чтения. Прочитано {totalBytesRead} байтов за {elapsed.TotalMilliseconds}мс.");
+                        }
+
+                        int bytesToReadThisIteration = byteCount - totalBytesRead; // количество осталось прочитать
+                        int bytesRead = _serialPort.Read(buffer, totalBytesRead, bytesToReadThisIteration); // чтение
+
+                        if (bytesRead <= 0) throw new IOException("метод Read вернул 0 байт"); //защита от пустого чтения и бесконечного цикла
+
+                        totalBytesRead += bytesRead; //увеличиваем счетчик прочитанных
+
+                    }
+
+                }
+
+                catch (TimeoutException ex)
+                {
+                    throw new TimeoutException($"Сработал таймаут. Ожидалось {byteCount}, получено {totalBytesRead}.", ex);
+                }
             catch (Exception ex)
         {
-            throw new NotImplementedException();
+                    throw new Exception($"ошибка при чтении данных из порта {_serialPort.PortName}.", ex);
+                }
+
+                return buffer;
+            }
+
         }
 
 
