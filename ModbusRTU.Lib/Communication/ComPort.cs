@@ -12,7 +12,37 @@ namespace ModbusRTUProject.Communication
         /// </summary>
         public void Close()
         {
-            throw new NotImplementedException();
+            if (_serialPort == null)
+            {
+                return;
+            }
+
+            try
+            {
+                if (_serialPort.IsOpen)
+                {
+                    DiscardIOBuffers(); // чистим порт
+                    _serialPort.Close(); // закрываем порт
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+            finally
+            {
+                _serialPort.Dispose(); // Освобождаем ресурсы
+                _serialPort = null;
+            }
+
+        }
+
+        public int Write(byte[] buffer)
+        {
+            if (buffer == null && buffer.Length == 0)
+            {
+                throw new ArgumentNullException(nameof(buffer),
+                    "Массив данных для отправки пустой.");
         }
 
         public void DiscardIOBuffers()
