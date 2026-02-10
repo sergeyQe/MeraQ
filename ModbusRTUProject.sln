@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36518.9 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModbusRTUProject", "ModbusRTUProject\ModbusRTUProject.csproj", "{F689F894-B658-42B3-9775-056FA1D820E9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModbusRTU.Lib", "ModbusRTU.Lib\ModbusRTU.Lib.csproj", "{68F1636A-1C55-46D7-9482-D25CA751DEDC}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F689F894-B658-42B3-9775-056FA1D820E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F689F894-B658-42B3-9775-056FA1D820E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F689F894-B658-42B3-9775-056FA1D820E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F689F894-B658-42B3-9775-056FA1D820E9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68F1636A-1C55-46D7-9482-D25CA751DEDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68F1636A-1C55-46D7-9482-D25CA751DEDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68F1636A-1C55-46D7-9482-D25CA751DEDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68F1636A-1C55-46D7-9482-D25CA751DEDC}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {93BDC044-83B0-42BB-9508-A9486AC015B7}
+	EndGlobalSection
+EndGlobal
