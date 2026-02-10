@@ -9,6 +9,8 @@ namespace ModbusRTUProject.Communication
 {
     internal class ModbusResponce
     {
-        public ExceptionCode Error {  get; set; }
+        public ExceptionCode Error { get; set; }
+
+        public byte[] Data { get; set; }
     }
 }
