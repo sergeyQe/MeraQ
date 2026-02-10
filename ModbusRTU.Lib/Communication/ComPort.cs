@@ -9,6 +9,7 @@ namespace ModbusRTUProject.Communication
 {
     internal class ComPort : ICommunicator
     {
+        /// </summary>
         public void Close()
         {
             throw new NotImplementedException();
