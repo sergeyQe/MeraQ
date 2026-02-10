@@ -9,6 +9,50 @@ namespace ModbusRTUProject.Communication
 {
     internal class ComPort : ICommunicator
     {
+        private SerialPort _serialPort;
+        private bool _disposed = false; //флаг переключения метода Dispose()
+        private readonly object _lock = new object();
+
+        public string PortName { get; set; } // Имя порта
+        public int BaudRate { get; set; } = 19200;  // Скорость передачи
+        public Parity Parity { get; set; } = Parity.None; // бит четности
+        public int DataBits { get; set; } = 8; // количество бит данных
+        public StopBits StopBits { get; set; } = StopBits.One;  // стоп биты
+
+        public ComPort(string portName)
+        {
+            PortName = portName;
+            _serialPort = new SerialPort(portName, BaudRate, Parity, DataBits, StopBits);
+            _serialPort.ReadTimeout = 1000;
+            _serialPort.WriteTimeout = 1000;
+        }
+
+
+        public void Open()
+        {
+            lock (_lock)
+            {
+                if (_serialPort.IsOpen)
+                {
+                    throw new InvalidOperationException($"COM-порт {_serialPort.PortName} уже открыт.");
+                }
+                try
+                {
+                    _serialPort.Open();
+                    DiscardIOBuffers(); //чистим порт
+
+                }
+
+                catch (Exception ex)
+                {
+                    throw new Exception($"ошибка при открытии порта{_serialPort.PortName}", ex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Закрывает последовательный порт и освобождает ресурсы
+        /// finally для гарантированной очистки
         /// </summary>
         public void Close()
         {
