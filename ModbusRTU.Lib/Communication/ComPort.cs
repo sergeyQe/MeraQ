@@ -1,5 +1,4 @@
 ﻿using ModbusRTUProject.Interfaces;
-using System;
 using System.IO.Ports;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
