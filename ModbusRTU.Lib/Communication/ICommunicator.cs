@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace ModbusRTUProject.Interfaces
 {
-    internal interface ICommunicator : IDisposable
+    public interface ICommunicator : IDisposable
     {
         void Open(); //подготовить удаленный порт данных для общения
 
@@ -19,6 +19,8 @@ namespace ModbusRTUProject.Interfaces
         byte[] Read(int byteCount); // получить от удаленного порта заданное количество байтов byteCount, результат – массив принятых байтов.
 
         void DiscardIOBuffers(); //очистить буфер приема/передачи данных
+
+        int ReadTimeout { get; set; } //таймаут
 
     }
 

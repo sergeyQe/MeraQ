@@ -4,7 +4,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ModbusRTUProject.Communication
 {
-    internal class ComPort : ICommunicator
+    public class ComPort : ICommunicator
     {
         private SerialPort _serialPort;
         private bool _disposed = false; //флаг переключения метода Dispose()
@@ -15,6 +15,16 @@ namespace ModbusRTUProject.Communication
         public Parity Parity { get; set; } = Parity.None; // бит четности
         public int DataBits { get; set; } = 8; // количество бит данных
         public StopBits StopBits { get; set; } = StopBits.One;  // стоп биты
+        public int ReadTimeout
+        {
+            get => _serialPort.ReadTimeout;
+            set
+            {
+                if (value <= 0)
+                    throw new ArgumentOutOfRangeException(nameof(value), "Таймаут должен быть больше 0");
+                _serialPort.ReadTimeout = value;
+            }
+        }
 
         public ComPort(string portName)
         {
