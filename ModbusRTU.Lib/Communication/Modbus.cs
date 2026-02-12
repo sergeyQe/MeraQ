@@ -41,12 +41,50 @@ namespace ModbusRTUProject.Communication
             return ProcessWriteResponse(response, deviceAddress, registerAddress, registerCount);
         }
 
+
+
+        public ModbusResponse Read(byte deviceAddress, ushort registerAddress, int byteCount)
+        {
+            ValidateDeviceAddress(deviceAddress);
+            ValidateRegisterAddress(registerAddress);
+
+            // Проверяем корректность количества байт
+            if (byteCount <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(byteCount),
+                    $"Количество байт должно быть положительным. Получено: {byteCount}");
+            }
+
+            // Данные должны содержать четное количество байтов (регистры по 2 байта)
+            if (byteCount % 2 != 0)
+            {
+                throw new ArgumentException(
+                    $"Количество байт должно быть четным (регистры по 2 байта). Получено: {byteCount} байт",
+                    nameof(byteCount));
+            }
+
+            // Проверяем максимальное количество регистров согласно спецификации Modbus для функции 0x04
+            // Максимум 125 регистров * 2 байта = 250 байт
+            if (byteCount > 250)
+            {
+                throw new ArgumentOutOfRangeException(nameof(byteCount),
+                    $"Количество байт ({byteCount}) превышает максимальное (250 байт или 125 регистров)");
+            }
+
+            // Определяем количество регистров для чтения (каждый регистр = 2 байта)
+            ushort registerCount = (ushort)(byteCount / 2);
+
+            // Создаем Modbus RTU запрос для функции 0x04 (Read Input Registers)
+            byte[] request = CreateReadRequest(deviceAddress, registerAddress, registerCount);
+
+            // Отправляем запрос и получаем ответ
+            byte[] response = SendRequest(request);
+
+            // Обрабатываем ответ
+            return ProcessReadResponse(response, deviceAddress, registerAddress, registerCount, byteCount);
+        }
+
         
-
-        //public ModbusResponse Read(byte deviceAddress, ushort registerAddress, int byteCount)
-        //{
-
-        //}
 
         public static ushort Calculate(IEnumerable<byte> data)
         {
@@ -71,6 +109,79 @@ namespace ModbusRTUProject.Communication
 
             return crc;
 
+        }
+
+
+        /// <summary>
+        /// Обрабатывает ответ на запрос чтения регистров (функция 0x04)
+        /// </summary>
+        private ModbusResponse ProcessReadResponse(byte[] response, byte deviceAddress, ushort registerAddress, ushort registerCount, int expectedByteCount)
+        {
+            // Проверяем минимальную длину ответа
+            if (response.Length < 5) // Адрес + функция + кол-во байт + CRC (минимум)
+            {
+                throw new InvalidOperationException(
+                    $"Некорректная длина ответа: {response.Length} байт. Ожидается минимум 5 байт.");
+            }
+
+            // Проверяем адрес устройства
+            if (response[0] != deviceAddress)
+            {
+                throw new InvalidOperationException(
+                    $"Несоответствие адреса устройства. Ожидался: {deviceAddress}, получен: {response[0]}");
+            }
+
+            // Проверяем код функции
+            byte functionCode = response[1];
+
+            // Если установлен старший бит (0x80), это код исключения
+            if ((functionCode & 0x80) != 0)
+            {
+                byte exceptionCode = response[2];
+                return new ModbusResponse
+                {
+                    Error = (ExceptionCode)exceptionCode,
+                    Data = Array.Empty<byte>()
+                };
+            }
+
+            // Проверяем, что это ответ на функцию 0x04
+            if (functionCode != 0x04)
+            {
+                throw new InvalidOperationException(
+                    $"Некорректный код функции в ответе: 0x{functionCode:X2}. Ожидался: 0x04");
+            }
+
+            // Получаем количество байт данных в ответе
+            byte dataByteCount = response[2];
+
+            // Проверяем соответствие ожидаемому количеству байт
+            if (dataByteCount != expectedByteCount)
+            {
+                throw new InvalidOperationException(
+                    $"Несоответствие количества байт данных. Ожидалось: {expectedByteCount}, получено: {dataByteCount}");
+            }
+
+            // Проверяем полную длину ответа
+            int expectedTotalLength = 3 + dataByteCount + 2; // Адрес + функция + кол-во байт + данные + CRC
+            if (response.Length != expectedTotalLength)
+            {
+                throw new InvalidOperationException(
+                    $"Некорректная длина ответа: {response.Length} байт. Ожидается: {expectedTotalLength} байт");
+            }
+
+            // Проверяем CRC
+            ValidateCRC(response);
+
+            // Извлекаем данные
+            byte[] data = new byte[dataByteCount];
+            Array.Copy(response, 3, data, 0, dataByteCount);
+
+            return new ModbusResponse
+            {
+                Error = ExceptionCode.Success,
+                Data = data
+            };
         }
 
         /// <summary>
@@ -144,6 +255,39 @@ namespace ModbusRTUProject.Communication
             {
                 throw new InvalidOperationException($"Ошибка при отправке/получении данных: {ex.Message}", ex);
             }
+        }
+
+        private byte[] CreateReadRequest(byte deviceAddress, ushort registerAddress, ushort registerCount)
+        {
+            // Формируем PDU (Protocol Data Unit) запроса
+            // Длина PDU = 1 байт (код функции) + 4 байта (адрес регистра + кол-во регистров)
+            int pduLength = 5; // 1 + 4
+            byte[] pdu = new byte[pduLength];
+
+            int index = 0;
+
+            pdu[index++] = 0x04;
+
+            // Адрес первого регистра (2 байта, старший байт первый)
+            pdu[index++] = (byte)(registerAddress >> 8);    // Старший байт
+            pdu[index++] = (byte)(registerAddress & 0xFF);  // Младший байт
+
+            // Количество регистров (2 байта, старший байт первый)
+            pdu[index++] = (byte)(registerCount >> 8);      // Старший байт
+            pdu[index++] = (byte)(registerCount & 0xFF);    // Младший байт
+
+            // Добавляем адрес устройства в начало, чтобы получить ADU (Application Data Unit)
+            byte[] adu = new byte[1 + pdu.Length + 2]; // Адрес + PDU + CRC
+            adu[0] = deviceAddress;
+            Array.Copy(pdu, 0, adu, 1, pdu.Length);
+
+            // Рассчитываем и добавляем контрольную сумму CRC-16
+            int bytesForCrc = 1 + pduLength; // Адрес + PDU
+            ushort crc = Calculate(adu.Take(bytesForCrc).ToArray());
+            adu[bytesForCrc] = (byte)(crc & 0xFF);      // Младший байт CRC
+            adu[bytesForCrc + 1] = (byte)(crc >> 8);    // Старший байт CRC
+
+            return adu;
         }
 
         private ModbusResponse ProcessWriteResponse(byte[] response, byte deviceAddress, ushort registerAddress, ushort registerCount)
