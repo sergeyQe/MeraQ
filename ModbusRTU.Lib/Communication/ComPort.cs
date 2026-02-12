@@ -93,32 +93,42 @@ namespace ModbusRTUProject.Communication
                     "Массив данных для отправки пустой.");
             }
 
-
-            if (!IsPortNotNull() || !IsPortOpen())
+            lock (_lock)
             {
-                throw new InvalidOperationException("_serialPort равен null или не открыт");
-            }
-
-            try
-            {
-                lock (_lock)
+                if (!IsPortNotNull() || !IsPortOpen())
                 {
+                    throw new InvalidOperationException("_serialPort равен null или не открыт");
+                }
+
+                try
+                {
+
+
                     _serialPort.Write(buffer, 0, buffer.Length);
                     return buffer.Length;
+
                 }
-            }
-            catch (TimeoutException ex)
-            {
-                throw new TimeoutException($"Таймаут записи в порт {PortName}.", ex);
-            }
-            catch (Exception ex)
-            {
-                throw new Exception($"Ошибка при записи {ex.Message}");
+                catch (TimeoutException ex)
+                {
+                    throw new TimeoutException($"Таймаут записи в порт {PortName}.", ex);
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception($"Ошибка при записи {ex.Message}");
+                }
             }
 
         }
 
         public void DiscardIOBuffers()
+        {
+            lock (_lock)
+            {
+                DiscardIOBuffersInternal();
+            }
+        }
+
+        private void DiscardIOBuffersInternal()
         {
             if (!IsPortNotNull() || !IsPortOpen()) return;
             try
@@ -134,7 +144,6 @@ namespace ModbusRTUProject.Communication
                 throw new Exception("Ошибка в методе DiscardIOBuffers()", ex);
             }
         }
-
 
         public byte[] Read()
         {
@@ -235,7 +244,7 @@ namespace ModbusRTUProject.Communication
 
             lock (_lock)
             {
-                if (!IsPortNotNull())
+                if (IsPortNotNull())
                 {
                     try
                     {
