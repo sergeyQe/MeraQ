@@ -1,15 +1,9 @@
 ﻿using ModbusRTU.Lib.Enums;
 using ModbusRTUProject.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ModbusRTUProject.Communication
 {
-    internal class Modbus
+    public class Modbus
     {
         private readonly ICommunicator _communicator;
 
@@ -35,7 +29,7 @@ namespace ModbusRTUProject.Communication
             byte[] request = CreateWriteRequest(deviceAddress, registerAddress, registerCount, data);
 
             // Отправляем запрос и получаем ответ
-            byte[] response = SendRequest(request);
+            byte[] response = SendRequest(request, 8);
 
             // Обрабатываем ответ
             return ProcessWriteResponse(response, deviceAddress, registerAddress, registerCount);
@@ -77,8 +71,9 @@ namespace ModbusRTUProject.Communication
             // Создаем Modbus RTU запрос для функции 0x04 (Read Input Registers)
             byte[] request = CreateReadRequest(deviceAddress, registerAddress, registerCount);
 
+            int expectedResponceLength = 3 + byteCount + 2; //ожидаемая длина
             // Отправляем запрос и получаем ответ
-            byte[] response = SendRequest(request);
+            byte[] response = SendRequest(request, expectedResponceLength);
 
             // Обрабатываем ответ
             return ProcessReadResponse(response, deviceAddress, registerAddress, registerCount, byteCount);
@@ -236,16 +231,17 @@ namespace ModbusRTUProject.Communication
         /// <summary>
         /// Отправляет запрос и получает ответ
         /// </summary>
-        private byte[] SendRequest(byte[] request)
+        private byte[] SendRequest(byte[] request, int expectedResponceLength)
         {
             try
             {
                 // Отправляем запрос
                 _communicator.Write(request);
 
+
+                ResponseTimeout = _communicator.ReadTimeout;
                 // Читаем ответ
-                // Для функции 0x10 ожидаем 8 байт (стандартный ответ)
-                return _communicator.Read(8);
+                return _communicator.Read(expectedResponceLength);
             }
             catch (TimeoutException ex)
             {
